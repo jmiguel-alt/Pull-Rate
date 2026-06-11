@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0A0A0F" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>PULL Rate</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0A0A0F;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+    input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+    input[type=number]{-moz-appearance:textfield}
+    ::-webkit-scrollbar{width:0;height:0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .fade-in{animation:fadeIn 0.25s ease}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const C = {
+  bg:'#0A0A0F', bg2:'#12121A', bg3:'#1C1C28', bg4:'#242435',
+  border:'#2A2A3E', green:'#00D632', yellow:'#FFD60A',
+  red:'#FF3B30', orange:'#FF8C00', blue:'#0A84FF',
+  text:'#FFFFFF', text2:'#A0A0B8', text3:'#606078',
+};
+
+const card = {background:C.bg2,borderRadius:16,padding:'16px',border:`1px solid ${C.border}`};
+const labelStyle = {fontSize:11,fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase',color:C.text3};
+
+const INVENTORY_DATA = [
+  {id:1,name:'Mega Venusaur ex SIR',set:'Mega Evolution',marketValue:303.95,basis:78,qty:1,status:'Holding',daysHeld:22},
+  {id:2,name:'Espeon V Alt Full Art',set:'Evolving Skies',marketValue:222.10,basis:78,qty:1,status:'Holding',daysHeld:45},
+  {id:3,name:'Meowth ex SIR',set:'Perfect Order',marketValue:202.19,basis:78,qty:1,status:'Listed',daysHeld:18},
+  {id:4,name:'Moltres Zapdos Articuno GX',set:'Hidden Fates',marketValue:186.87,basis:78,qty:1,status:'Holding',daysHeld:38},
+  {id:5,name:'Charizard ex SIR',set:'Obsidian Flames',marketValue:139.59,basis:78,qty:1,status:'Trade Pending',daysHeld:12},
+  {id:6,name:'Charmander IR',set:'SV 151',marketValue:123.22,basis:78,qty:1,status:'Holding',daysHeld:55},
+  {id:7,name:'Greninja ex Promo',set:'SV Promo',marketValue:116.74,basis:78,qty:1,status:'Holding',daysHeld:8},
+  {id:8,name:'Psyduck IR',set:'Ascended Heroes',marketValue:111.30,basis:78,qty:2,status:'Holding',daysHeld:31},
+  {id:9,name:'Pikachu IR',set:'SV 151',marketValue:107.95,basis:78,qty:1,status:'Listed',daysHeld:14},
+  {id:10,name:'Mew ex Promo',set:'SV Promo',marketValue:90.70,basis:78,qty:1,status:'Holding',daysHeld:27},
+];
+
+const HOT_CARDS = [
+  {id:1,name:'Mega Gengar ex 284/217',set:'Ascended Heroes',price:1396.39,change:4.2},
+  {id:2,name:'Pikachu ex 276/217',set:'Ascended Heroes',price:1249.88,change:2.1},
+  {id:3,name:'Mega Dragonite ex 290/217',set:'Ascended Heroes',price:830.31,change:1.8},
+  {id:4,name:'Mega Charizard X ex SIR',set:'Phantasmal Flames',price:868.92,change:-0.9},
+  {id:5,name:'Charizard ex 199/165',set:'SV 151',price:451.28,change:3.8},
+];
+
+const RULES = [
+  {icon:'🚫',text:'Never sell below basis + 7%'},
+  {icon:'📊',text:'Minimum 10% spread to execute any trade'},
+  {icon:'✅',text:'Always confirm exit before entering a trade'},
+  {icon:'⚡',text:'Velocity beats perfect price every time'},
+  {icon:'🎯',text:'Basis controls everything'},
+];
+
+const MOCK_SCANS = [
+  {name:'Charizard ex 199/165',set:'SV 151',number:'199/165',condition:'Near Mint',price:451.28,change:3.8,listings:47,sold7d:23},
+  {name:'Pikachu ex 276/217',set:'Ascended Heroes',number:'276/217',condition:'Near Mint',price:1249.88,change:2.1,listings:12,sold7d:8},
+  {name:'Mega Gengar ex 284/217',set:'Ascended Heroes',number:'284/217',condition:'Near Mint',price:1396.39,change:4.2,listings:9,sold7d:5},
+];
+
+const getTierColor = b => b < 65 ? C.green : b <= 75 ? C.orange : C.red;
+const getRealCost = (mv,b) => mv * b / 100;
+const fmt = n => n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// ─── NAV ICONS ──────────────────────────────────────────────────────────────
+const HomeIcon = ({color}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 12L12 3L21 12V21H15V15H9V21H3V12Z" fill={color}/></svg>;
+const CardsIcon = ({color}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" stroke={color} strokeWidth="2"/><path d="M2 10H22" stroke={color} strokeWidth="2"/></svg>;
+const AnalyzerIcon = ({color}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 3V21H21" stroke={color} strokeWidth="2" strokeLinecap="round"/><path d="M7 16L12 10L16 13L21 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const TradeIcon = ({color}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M7 16L3 12L7 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M17 8L21 12L17 16" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 12H21" stroke={color} strokeWidth="2" strokeLinecap="round"/></svg>;
+const ScanIcon = ({color}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6V4H6" stroke={color} strokeWidth="2" strokeLinecap="round"/><path d="M18 4H20V6" stroke={color} strokeWidth="2" strokeLinecap="round"/><path d="M20 18V20H18" stroke={color} strokeWidth="2" strokeLinecap="round"/><path d="M6 20H4V18" stroke={color} strokeWidth="2" strokeLinecap="round"/><line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round"/></svg>;
+const StatsIcon = ({color}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="14" width="4" height="7" rx="1" fill={color}/><rect x="10" y="9" width="4" height="12" rx="1" fill={color}/><rect x="17" y="4" width="4" height="17" rx="1" fill={color}/></svg>;
+
+const NAV = [
+  {id:'home',label:'Home',Icon:HomeIcon},
+  {id:'inventory',label:'Cards',Icon:CardsIcon},
+  {id:'analyzer',label:'Analyzer',Icon:AnalyzerIcon},
+  {id:'trade',label:'Plays',Icon:TradeIcon},
+  {id:'scanner',label:'Scan',Icon:ScanIcon},
+  {id:'stats',label:'Stats',Icon:StatsIcon},
+];
+
+// ─── SHARED COMPONENTS ──────────────────────────────────────────────────────
+function Pill({label,active,color,onClick}){
+  return <button onClick={onClick} style={{background:active?(color||C.green):C.bg3,border:`1px solid ${active?(color||C.green):C.border}`,borderRadius:20,padding:'6px 14px',cursor:'pointer',fontSize:12,fontWeight:600,color:active?((color&&color!==C.green)?'#fff':'#000'):C.text2,whiteSpace:'nowrap',flexShrink:0}}>{label}</button>;
+}
+function FormInput({label,value,onChange,placeholder,type='text'}){
+  return <div style={{marginBottom:10}}>
+    <div style={{fontSize:11,color:C.text3,marginBottom:5,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</div>
+    <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:'100%',background:C.bg3,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',color:C.text,fontSize:14,outline:'none'}}/>
+  </div>;
+}
+
+// ─── HOME ───────────────────────────────────────────────────────────────────
+function Home({inventory,setTab}){
+  const totalMV = inventory.reduce((s,c)=>s+c.marketValue*c.qty,0);
+  const totalCost = inventory.reduce((s,c)=>s+getRealCost(c.marketValue,c.basis)*c.qty,0);
+  const profit90 = totalMV*0.9 - totalCost;
+  const avgBasis = (totalCost/totalMV)*100;
+  const cardCount = inventory.reduce((s,c)=>s+c.qty,0);
+  const stale = inventory.filter(c=>c.daysHeld>30);
+
+  return <div style={{padding:'16px 16px 0'}}>
+    {/* Hero */}
+    <div style={{background:'linear-gradient(135deg,#0F1A14 0%,#12121A 100%)',borderRadius:20,padding:'24px 20px',border:`1px solid ${C.green}30`,marginBottom:16}}>
+      <div style={labelStyle}>Portfolio Market Value</div>
+      <div style={{fontSize:42,fontWeight:800,color:C.text,letterSpacing:'-0.03em',margin:'4px 0 8px'}}>${fmt(totalMV)}</div>
+      <div style={{display:'flex',alignItems:'center',gap:6}}>
+        <div style={{background:`${C.green}20`,borderRadius:8,padding:'4px 10px',display:'flex',alignItems:'center',gap:4}}>
+          <span style={{fontSize:12,color:C.green}}>▲</span>
+          <span style={{fontSize:13,fontWeight:700,color:C.green}}>${fmt(profit90)} at 90% exit</span>
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginTop:20,paddingTop:16,borderTop:`1px solid ${C.border}`}}>
+        {[['Real Cost',`$${fmt(totalCost)}`],['Cards',cardCount],['Avg Basis',`${avgBasis.toFixed(1)}%`,getTierColor(avgBasis)]].map(([l,v,col])=>
+          <div key={l}><div style={{fontSize:10,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600,marginBottom:4}}>{l}</div><div style={{fontSize:16,fontWeight:700,color:col||C.text}}>{v}</div></div>
+        )}
+      </div>
+    </div>
+
+    {/* Quick Actions */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
+      {[['📷','Scan','scanner',false],['📊','Analyzer','analyzer',true],['♟️','Plays','trade',false]].map(([icon,label,id,accent])=>
+        <button key={id} onClick={()=>setTab(id)} style={{background:accent?C.green:C.bg3,border:`1px solid ${accent?C.green:C.border}`,borderRadius:12,padding:'12px 8px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
+          <span style={{fontSize:20}}>{icon}</span>
+          <span style={{fontSize:11,fontWeight:700,color:accent?'#000':C.text,letterSpacing:'0.02em'}}>{label}</span>
+        </button>
+      )}
+    </div>
+
+    {/* Stale Alert */}
+    {stale.length>0 && <div style={{background:`${C.orange}15`,border:`1px solid ${C.orange}40`,borderRadius:14,padding:'12px 16px',marginBottom:16}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+        <span style={{fontSize:16}}>⚠️</span>
+        <span style={{fontSize:13,fontWeight:700,color:C.orange}}>Stale Inventory Alert</span>
+      </div>
+      <div style={{fontSize:12,color:C.text2}}>{stale.length} card{stale.length>1?'s':''} held over 30 days — consider moving</div>
+      <div style={{marginTop:8}}>
+        {stale.slice(0,3).map(c=><div key={c.id} style={{fontSize:12,color:C.orange,display:'flex',justifyContent:'space-between',padding:'3px 0'}}>
+          <span>{c.name}</span><span>{c.daysHeld}d</span>
+        </div>)}
+      </div>
+    </div>}
+
+    {/* Hot Cards */}
+    <div style={{marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <span style={{fontSize:15,fontWeight:700,color:C.text}}>🔥 Hot Cards</span>
+        <span style={{fontSize:11,color:C.text3}}>Market Data</span>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {HOT_CARDS.map(card=><div key={card.id} style={{background:C.bg2,borderRadius:12,padding:'12px 14px',border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:C.text}}>{card.name}</div>
+            <div style={{fontSize:11,color:C.text3,marginTop:2}}>{card.set}</div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:15,fontWeight:700,color:C.text}}>${fmt(card.price)}</div>
+            <div style={{fontSize:12,fontWeight:600,color:card.change>=0?C.green:C.red}}>{card.change>=0?'▲':'▼'} {Math.abs(card.change)}%</div>
+          </div>
+        </div>)}
+      </div>
+    </div>
+  </div>;
+}
+
+// ─── INVENTORY ──────────────────────────────────────────────────────────────
+function Inventory({inventory,setInventory}){
+  const [filter,setFilter] = React.useState('All');
+  const [showAdd,setShowAdd] = React.useState(false);
+  const [form,setForm] = React.useState({name:'',set:'',marketValue:'',basis:'',qty:1,status:'Holding',daysHeld:0});
+  const filtered = filter==='All'?inventory:inventory.filter(c=>c.status===filter);
+
+  const addCard = ()=>{
+    if(!form.name||!form.marketValue||!form.basis)return;
+    setInventory(p=>[{...form,id:Date.now(),marketValue:parseFloat(form.marketValue),basis:parseFloat(form.basis),qty:parseInt(form.qty)||1,daysHeld:parseInt(form.daysHeld)||0},...p]);
+    setForm({name:'',set:'',marketValue:'',basis:'',qty:1,status:'Holding',daysHeld:0});
+    setShowAdd(false);
+  };
+
+  return <div style={{padding:'16px 16px 0'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+      <span style={{fontSize:15,fontWeight:700,color:C.text}}>{inventory.length} Cards</span>
+      <button onClick={()=>setShowAdd(!showAdd)} style={{background:C.green,border:'none',borderRadius:20,padding:'7px 16px',cursor:'pointer',fontSize:12,fontWeight:700,color:'#000'}}>{showAdd?'✕ Cancel':'+ Add Card'}</button>
+    </div>
+
+    {showAdd && <div style={{...card,marginBottom:16}} className="fade-in">
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Add Card to Inventory</div>
+      <FormInput label="Card Name *" value={form.name} onChange={v=>setForm(p=>({...p,name:v}))} placeholder="e.g. Charizard ex SIR"/>
+      <FormInput label="Set" value={form.set} onChange={v=>setForm(p=>({...p,set:v}))} placeholder="e.g. Obsidian Flames"/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        <FormInput label="Market Value *" value={form.marketValue} onChange={v=>setForm(p=>({...p,marketValue:v}))} placeholder="0.00" type="number"/>
+        <FormInput label="Basis % *" value={form.basis} onChange={v=>setForm(p=>({...p,basis:v}))} placeholder="78" type="number"/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        <FormInput label="Qty" value={form.qty} onChange={v=>setForm(p=>({...p,qty:v}))} placeholder="1" type="number"/>
+        <FormInput label="Days Held" value={form.daysHeld} onChange={v=>setForm(p=>({...p,daysHeld:v}))} placeholder="0" type="number"/>
+      </div>
+      <div style={{marginBottom:10}}>
+        <div style={{fontSize:11,color:C.text3,marginBottom:6,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>Status</div>
+        <div style={{display:'flex',gap:6}}>
+          {['Holding','Listed','Trade Pending'].map(s=><button key={s} onClick={()=>setForm(p=>({...p,status:s}))} style={{flex:1,background:form.status===s?C.green:C.bg3,border:`1px solid ${form.status===s?C.green:C.border}`,borderRadius:8,padding:'7px 4px',cursor:'pointer',fontSize:10,fontWeight:700,color:form.status===s?'#000':C.text2}}>{s}</button>)}
+        </div>
+      </div>
+      <button onClick={addCard} style={{width:'100%',background:C.green,border:'none',borderRadius:12,padding:'13px',cursor:'pointer',fontSize:14,fontWeight:700,color:'#000'}}>Add to Inventory</button>
+    </div>}
+
+    <div style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto',paddingBottom:2}}>
+      {['All','Holding','Listed','Trade Pending'].map(f=><Pill key={f} label={`${f} ${f==='All'?inventory.length:inventory.filter(c=>c.status===f).length}`} active={filter===f} onClick={()=>setFilter(f)}/>)}
+    </div>
+
+    <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:8}}>
+      {filtered.map(c=>{
+        const realCost = getRealCost(c.marketValue,c.basis)*c.qty;
+        const profit90 = (c.marketValue*0.9-getRealCost(c.marketValue,c.basis))*c.qty;
+        const tc = getTierColor(c.basis);
+        const stale = c.daysHeld>30;
+        return <div key={c.id} style={{background:C.bg2,borderRadius:14,border:`1px solid ${C.border}`,borderLeft:`3px solid ${tc}`,overflow:'hidden'}}>
+          <div style={{padding:'12px 14px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+              <div style={{flex:1}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                  <span style={{fontSize:13,fontWeight:700,color:C.text}}>{c.name}</span>
+                  {c.qty>1 && <span style={{fontSize:10,background:C.bg4,borderRadius:6,padding:'2px 6px',color:C.text2,fontWeight:600}}>×{c.qty}</span>}
+                  {stale && <span style={{fontSize:10,background:`${C.orange}20`,borderRadius:6,padding:'2px 6px',color:C.orange,fontWeight:700}}>STALE</span>}
+                </div>
+                <div style={{fontSize:11,color:C.text3,marginTop:2}}>{c.set}</div>
+              </div>
+              <div style={{textAlign:'right',flexShrink:0}}>
+                <div style={{fontSize:15,fontWeight:700,color:C.text}}>${fmt(c.marketValue*c.qty)}</div>
+                {c.qty>1 && <div style={{fontSize:11,color:C.text3}}>${fmt(c.marketValue)} ea</div>}
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,padding:'10px 0 8px',borderTop:`1px solid ${C.border}`}}>
+              {[['Cost',`$${fmt(realCost)}`],['Basis',`${c.basis}%`,tc],['@90%',`${profit90>=0?'+':''}$${profit90.toFixed(0)}`,profit90>=0?C.green:C.red],['Days',`${c.daysHeld}d`,stale?C.orange:C.text2]].map(([l,v,col])=>
+                <div key={l}><div style={{fontSize:9,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600}}>{l}</div><div style={{fontSize:12,fontWeight:700,color:col||C.text,marginTop:2}}>{v}</div></div>
+              )}
+            </div>
+            <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+              <span style={{fontSize:10,color:C.text3}}>Status:</span>
+              {['Holding','Listed','Trade Pending'].map(s=><button key={s} onClick={()=>setInventory(p=>p.map(x=>x.id===c.id?{...x,status:s}:x))} style={{background:c.status===s?`${tc}25`:'transparent',border:`1px solid ${c.status===s?tc:C.border}`,borderRadius:6,padding:'3px 8px',cursor:'pointer',fontSize:10,fontWeight:600,color:c.status===s?tc:C.text3}}>{s}</button>)}
+            </div>
+          </div>
+        </div>;
+      })}
+    </div>
+
+    <div style={{...card,marginTop:8}}>
+      <div style={{fontSize:11,fontWeight:700,color:C.text3,marginBottom:10,letterSpacing:'0.06em',textTransform:'uppercase'}}>Tier System</div>
+      {[['T1 — Under 65%',C.green],['T2 — 66–75%',C.orange],['T3 — Over 75%',C.red]].map(([l,col])=>
+        <div key={l} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0'}}>
+          <div style={{width:3,height:16,background:col,borderRadius:2}}/>
+          <span style={{fontSize:12,color:C.text2}}>{l}</span>
+        </div>
+      )}
+    </div>
+  </div>;
+}
+
+// ─── DEAL ANALYZER ──────────────────────────────────────────────────────────
+const EXIT_FEES = {Local:0,'Sealed Loop':0,TCGplayer:0.1275};
+const newGive = ()=>({id:Date.now()+Math.random(),name:'',marketValue:'',basis:'',qty:1});
+const newRecv = ()=>({id:Date.now()+Math.random(),name:'',marketValue:'',qty:1});
+
+function DealAnalyzer(){
+  const [giving,setGiving] = React.useState([newGive()]);
+  const [receiving,setReceiving] = React.useState([newRecv()]);
+  const [cashMode,setCashMode] = React.useState('none');
+  const [cashAmt,setCashAmt] = React.useState('');
+  const [exitPlan,setExitPlan] = React.useState('Local');
+  const [targetPct,setTargetPct] = React.useState('90');
+  const [result,setResult] = React.useState(null);
+  const fee = EXIT_FEES[exitPlan];
+
+  const analyze = ()=>{
+    const gc = giving.filter(c=>c.name&&c.marketValue&&c.basis);
+    const rc = receiving.filter(c=>c.name&&c.marketValue);
+    if(!gc.length||!rc.length)return;
+    const giveMV = gc.reduce((s,c)=>s+parseFloat(c.marketValue)*(parseInt(c.qty)||1),0);
+    const giveRC = gc.reduce((s,c)=>s+parseFloat(c.marketValue)*(parseInt(c.qty)||1)*parseFloat(c.basis)/100,0);
+    const recvMV = rc.reduce((s,c)=>s+parseFloat(c.marketValue)*(parseInt(c.qty)||1),0);
+    const cash = parseFloat(cashAmt)||0;
+    const cashPay = cashMode==='ipay'?cash:0;
+    const cashRecv = cashMode==='ireceive'?cash:0;
+    const totalRC = giveRC+cashPay;
+    const totalRecvMV = recvMV+cashRecv;
+    const newBasis = (totalRC/totalRecvMV)*100;
+    const tgt = parseFloat(targetPct)||90;
+    const proceeds = totalRecvMV*(tgt/100)*(1-fee);
+    const profit = proceeds-totalRC;
+    const pctRet = (profit/totalRC)*100;
+    const spread = ((recvMV-giveMV)/giveMV)*100;
+    let verdict,vc,rec;
+    if(newBasis<65&&spread>=10){verdict='GO';vc=C.green;rec=`Strong play. You're improving to a T1 basis of ${newBasis.toFixed(1)}% with a ${spread.toFixed(1)}% spread. At ${tgt}% exit${exitPlan==='TCGplayer'?' after 12.75% fees':''}, you profit $${fmt(profit)}. Pull the trigger.`;}
+    else if(newBasis<75&&spread>=10){verdict='MAYBE';vc=C.yellow;rec=`Decent trade. New basis of ${newBasis.toFixed(1)}% is a T2 position. The ${spread.toFixed(1)}% spread clears minimum requirements. Consider only if you have a confirmed exit at ${tgt}%+ ready.`;}
+    else if(newBasis<80&&spread>=5){verdict='CAUTION';vc=C.orange;rec=`Thin deal. New basis ${newBasis.toFixed(1)}% is still T3 territory. Spread is only ${spread.toFixed(1)}% — below the 10% minimum. Do not execute without a firm buyer lined up.`;}
+    else{verdict='PASS';vc=C.red;rec=`This trade doesn't work. New basis would be ${newBasis.toFixed(1)}% and the spread of ${spread.toFixed(1)}% fails minimum requirements. Hard pass.`;}
+    const scenarios = [70,80,90,95,100].map(p=>({p,profit:totalRecvMV*(p/100)*(1-fee)-totalRC}));
+    setResult({verdict,vc,profit,pctRet,newBasis,totalRC,totalRecvMV,rec,scenarios});
+  };
+
+  const upG=(id,f,v)=>setGiving(p=>p.map(c=>c.id===id?{...c,[f]:v}:c));
+  const upR=(id,f,v)=>setReceiving(p=>p.map(c=>c.id===id?{...c,[f]:v}:c));
+
+  return <div style={{padding:'16px 16px 0'}}>
+    <div style={{fontSize:17,fontWeight:800,color:C.text,marginBottom:4}}>Deal Analyzer</div>
+    <div style={{fontSize:12,color:C.text3,marginBottom:16}}>Model any trade before you commit</div>
+
+    {/* Giving */}
+    <AnalyzerSection title="Giving Up 📤">
+      {giving.map((c,i)=><CardRow key={c.id} card={c} index={i} showBasis onChange={(f,v)=>upG(c.id,f,v)} onRemove={giving.length>1?()=>setGiving(p=>p.filter(x=>x.id!==c.id)):null}/>)}
+      <AddRowBtn onClick={()=>setGiving(p=>[...p,newGive()])}/>
+    </AnalyzerSection>
+
+    {/* Cash */}
+    <AnalyzerSection title="Cash Component 💵">
+      <div style={{display:'flex',gap:6,marginBottom:cashMode!=='none'?10:0}}>
+        {[['none','No Cash'],['ipay','I Pay'],['ireceive','I Receive']].map(([val,lbl])=><button key={val} onClick={()=>setCashMode(val)} style={{flex:1,background:cashMode===val?C.green:C.bg3,border:`1px solid ${cashMode===val?C.green:C.border}`,borderRadius:10,padding:'9px 4px',cursor:'pointer',fontSize:11,fontWeight:700,color:cashMode===val?'#000':C.text2}}>{lbl}</button>)}
+      </div>
+      {cashMode!=='none'&&<input type="number" value={cashAmt} onChange={e=>setCashAmt(e.target.value)} placeholder="Amount" style={{width:'100%',background:C.bg3,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',color:C.text,fontSize:14,outline:'none'}}/>}
+    </AnalyzerSection>
+
+    {/* Receiving */}
+    <AnalyzerSection title="Receiving 📥">
+      {receiving.map((c,i)=><CardRow key={c.id} card={c} index={i} showBasis={false} onChange={(f,v)=>upR(c.id,f,v)} onRemove={receiving.length>1?()=>setReceiving(p=>p.filter(x=>x.id!==c.id)):null}/>)}
+      <AddRowBtn onClick={()=>setReceiving(p=>[...p,newRecv()])}/>
+    </AnalyzerSection>
+
+    {/* Exit Plan */}
+    <AnalyzerSection title="Exit Plan 🚪">
+      <div style={{display:'flex',gap:6,marginBottom:12}}>
+        {Object.keys(EXIT_FEES).map(plan=><button key={plan} onClick={()=>setExitPlan(plan)} style={{flex:1,background:exitPlan===plan?C.green:C.bg3,border:`1px solid ${exitPlan===plan?C.green:C.border}`,borderRadius:10,padding:'9px 4px',cursor:'pointer',fontSize:11,fontWeight:700,color:exitPlan===plan?'#000':C.text2}}>{plan}</button>)}
+      </div>
+      {exitPlan==='TCGplayer'&&<div style={{fontSize:11,color:C.orange,marginBottom:10,padding:'6px 10px',background:`${C.orange}15`,borderRadius:8}}>⚠️ 12.75% platform fee applied automatically</div>}
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:12,color:C.text2,flexShrink:0}}>Target Sell %</span>
+        <input type="number" value={targetPct} onChange={e=>setTargetPct(e.target.value)} style={{flex:1,background:C.bg3,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',color:C.text,fontSize:14,outline:'none'}}/>
+        <span style={{fontSize:14,color:C.text2}}>%</span>
+      </div>
+    </AnalyzerSection>
+
+    <button onClick={analyze} style={{width:'100%',background:C.green,border:'none',borderRadius:14,padding:'16px',cursor:'pointer',fontSize:16,fontWeight:800,color:'#000',letterSpacing:'-0.01em',marginBottom:16}}>ANALYZE TRADE</button>
+
+    {result && <AnalyzerResults result={result} fee={fee}/>}
+
+    <div style={{...card,marginTop:16,marginBottom:8}}>
+      <div style={{fontSize:11,fontWeight:700,color:C.text3,marginBottom:10,letterSpacing:'0.06em',textTransform:'uppercase'}}>Rules Engine</div>
+      {RULES.map((r,i)=><div key={i} style={{display:'flex',gap:8,padding:'5px 0',borderBottom:i<RULES.length-1?`1px solid ${C.border}`:'none'}}>
+        <span style={{fontSize:14}}>{r.icon}</span>
+        <span style={{fontSize:12,color:C.text2}}>{r.text}</span>
+      </div>)}
+    </div>
+  </div>;
+}
+
+function AnalyzerResults({result,fee}){
+  const {verdict,vc,profit,pctRet,newBasis,totalRC,totalRecvMV,rec,scenarios}=result;
+  return <div className="fade-in">
+    <div style={{background:`${vc}15`,border:`2px solid ${vc}40`,borderRadius:16,padding:'20px',marginBottom:12,textAlign:'center'}}>
+      <div style={{fontSize:36,fontWeight:900,color:vc,letterSpacing:'-0.02em'}}>{verdict}</div>
+      <div style={{fontSize:24,fontWeight:700,color:vc,marginTop:4}}>{profit>=0?'+':''}${fmt(profit)} <span style={{fontSize:14,fontWeight:600}}>({pctRet>=0?'+':''}{pctRet.toFixed(1)}%)</span></div>
+      <div style={{fontSize:13,color:C.text2,marginTop:4}}>Return on real capital</div>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:12}}>
+      {[['Real Cost',`$${fmt(totalRC)}`],['Recv. MV',`$${fmt(totalRecvMV)}`],['New Basis',`${newBasis.toFixed(1)}%`]].map(([l,v])=>
+        <div key={l} style={{background:C.bg3,borderRadius:12,padding:'12px 10px',border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:10,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600}}>{l}</div>
+          <div style={{fontSize:14,fontWeight:700,color:C.text,marginTop:4}}>{v}</div>
+        </div>
+      )}
+    </div>
+    <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+      <div style={{fontSize:11,fontWeight:700,color:C.text3,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Recommendation</div>
+      <div style={{fontSize:13,color:C.text2,lineHeight:1.5}}>{rec}</div>
+    </div>
+    <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+      <div style={{fontSize:11,fontWeight:700,color:C.text3,marginBottom:10,textTransform:'uppercase',letterSpacing:'0.06em'}}>Exit Scenarios {fee>0&&'(after fees)'}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:6}}>
+        {scenarios.map(({p,profit:pr})=><div key={p} style={{textAlign:'center',background:C.bg3,borderRadius:10,padding:'10px 4px'}}>
+          <div style={{fontSize:11,color:C.text3,marginBottom:4}}>{p}%</div>
+          <div style={{fontSize:11,fontWeight:700,color:pr>=0?C.green:C.red}}>{pr>=0?'+':''}${pr.toFixed(0)}</div>
+        </div>)}
+      </div>
+    </div>
+  </div>;
+}
+
+function AnalyzerSection({title,children}){
+  return <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px',marginBottom:12}}>
+    <div style={{fontSize:12,fontWeight:700,color:C.text2,marginBottom:12}}>{title}</div>
+    {children}
+  </div>;
+}
+
+function CardRow({card,index,showBasis,onChange,onRemove}){
+  return <div style={{marginBottom:10}}>
+    {index>0&&<div style={{borderTop:`1px solid ${C.border}`,marginBottom:10}}/>}
+    <div style={{display:'flex',gap:6,alignItems:'flex-end'}}>
+      <div style={{flex:2}}>
+        <div style={{fontSize:10,color:C.text3,marginBottom:4,fontWeight:600}}>CARD NAME</div>
+        <input value={card.name} onChange={e=>onChange('name',e.target.value)} placeholder="Card name" style={{width:'100%',background:C.bg3,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none'}}/>
+      </div>
+      <div style={{flex:1}}>
+        <div style={{fontSize:10,color:C.text3,marginBottom:4,fontWeight:600}}>MKT VAL</div>
+        <input type="number" value={card.marketValue} onChange={e=>onChange('marketValue',e.target.value)} placeholder="0.00" style={{width:'100%',background:C.bg3,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none'}}/>
+      </div>
+      {showBasis&&<div style={{width:52}}>
+        <div style={{fontSize:10,color:C.text3,marginBottom:4,fontWeight:600}}>BASIS%</div>
+        <input type="number" value={card.basis} onChange={e=>onChange('basis',e.target.value)} placeholder="78" style={{width:'100%',background:C.bg3,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px 6px',color:C.text,fontSize:13,outline:'none'}}/>
+      </div>}
+      <div style={{width:36}}>
+        <div style={{fontSize:10,color:C.text3,marginBottom:4,fontWeight:600}}>QTY</div>
+        <input type="number" value={card.qty} onChange={e=>onChange('qty',e.target.value)} placeholder="1" style={{width:'100%',background:C.bg3,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px 6px',color:C.text,fontSize:13,outline:'none'}}/>
+      </div>
+      {onRemove&&<button onClick={onRemove} style={{background:`${C.red}20`,border:'none',borderRadius:8,width:32,height:36,cursor:'pointer',color:C.red,fontSize:16,flexShrink:0}}>×</button>}
+    </div>
+  </div>;
+}
+
+function AddRowBtn({onClick}){
+  return <button onClick={onClick} style={{background:'transparent',border:`1px dashed ${C.border}`,borderRadius:8,padding:'8px',width:'100%',cursor:'pointer',fontSize:12,color:C.text3,marginTop:4}}>+ Add Card</button>;
+}
+
+// ─── TRADE BLOCK ────────────────────────────────────────────────────────────
+function generatePlays(inventory){
+  const candidates = [...inventory].filter(c=>c.status==='Holding').sort((a,b)=>b.basis-a.basis).slice(0,3);
+  return candidates.map((give,i)=>{
+    const hot = HOT_CARDS[i%HOT_CARDS.length];
+    const rc = getRealCost(give.marketValue,give.basis)*give.qty;
+    const newBasis = (rc/hot.price)*100;
+    const profit90 = hot.price*0.9-rc;
+    const basisDrop = give.basis-newBasis;
+    return {id:i+1,give,hot,newBasis,profit90,basisDrop};
+  });
+}
+
+function TradeBlock({inventory}){
+  const [plays,setPlays] = React.useState(null);
+  if(!plays) return <div style={{padding:'16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:400}}>
+    <div style={{width:80,height:80,borderRadius:24,background:C.bg3,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20}}><span style={{fontSize:36}}>♟️</span></div>
+    <div style={{fontSize:20,fontWeight:800,color:C.text,marginBottom:8,textAlign:'center'}}>Trade Block</div>
+    <div style={{fontSize:13,color:C.text3,textAlign:'center',lineHeight:1.5,marginBottom:28,maxWidth:280}}>Analyze your inventory and cross-reference hot cards to surface your best trade plays.</div>
+    <button onClick={()=>setPlays(generatePlays(inventory))} style={{background:C.green,border:'none',borderRadius:14,padding:'16px 32px',cursor:'pointer',fontSize:15,fontWeight:800,color:'#000'}}>Generate Plays</button>
+  </div>;
+
+  return <div style={{padding:'16px 16px 0'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+      <div><div style={{fontSize:17,fontWeight:800,color:C.text}}>Trade Plays</div><div style={{fontSize:12,color:C.text3}}>Based on your highest basis cards</div></div>
+      <button onClick={()=>setPlays(null)} style={{background:C.bg3,border:`1px solid ${C.border}`,borderRadius:20,padding:'6px 14px',cursor:'pointer',fontSize:12,color:C.text2,fontWeight:600}}>Reset</button>
+    </div>
+    <div style={{display:'flex',flexDirection:'column',gap:14}} className="fade-in">
+      {plays.map(p=><PlayCard key={p.id} play={p}/>)}
+    </div>
+    <div style={{...card,marginTop:16,marginBottom:8}}>
+      <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>How Plays Are Ranked</div>
+      <div style={{fontSize:12,color:C.text2,lineHeight:1.6}}>Plays target your highest basis (worst) positions and model trades into the hottest moving cards. The goal is maximum basis reduction per trade.</div>
+    </div>
+  </div>;
+}
+
+const BADGE_COLORS=['#00D632','#FFD60A','#FF8C00'];
+function PlayCard({play}){
+  const {id,give,hot,newBasis,profit90,basisDrop}=play;
+  const nbc=getTierColor(newBasis);
+  return <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:16,overflow:'hidden'}}>
+    <div style={{background:C.bg3,padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <div style={{width:28,height:28,borderRadius:8,background:BADGE_COLORS[id-1]+'25',border:`1px solid ${BADGE_COLORS[id-1]}40`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <span style={{fontSize:12,fontWeight:900,color:BADGE_COLORS[id-1]}}>P{id}</span>
+        </div>
+        <span style={{fontSize:13,fontWeight:700,color:C.text}}>Play #{id}</span>
+      </div>
+      <div style={{background:`${nbc}20`,borderRadius:8,padding:'4px 8px'}}><span style={{fontSize:11,fontWeight:700,color:nbc}}>▼ {basisDrop.toFixed(1)}% basis</span></div>
+    </div>
+    <div style={{padding:'14px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 24px 1fr',gap:8,alignItems:'center',marginBottom:14}}>
+        <TradeCardBox label="GIVE UP" name={give.name} set={give.set} mv={give.marketValue*give.qty} basis={give.basis} side="give"/>
+        <div style={{textAlign:'center',color:C.text3,fontSize:16}}>→</div>
+        <TradeCardBox label="RECEIVE" name={hot.name} set={hot.set} mv={hot.price} side="receive"/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,padding:'12px 0 0',borderTop:`1px solid ${C.border}`}}>
+        {[['New Basis',`${newBasis.toFixed(1)}%`,nbc],['Profit @90%',`${profit90>=0?'+':''}$${profit90.toFixed(2)}`,profit90>=0?C.green:C.red],['Basis Drop',`▼ ${basisDrop.toFixed(1)}%`,C.green]].map(([l,v,col])=>
+          <div key={l}><div style={{fontSize:9,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600}}>{l}</div><div style={{fontSize:13,fontWeight:700,color:col||C.text,marginTop:3}}>{v}</div></div>
+        )}
+      </div>
+    </div>
+  </div>;
+}
+
+function TradeCardBox({label,name,set,mv,basis,side}){
+  const col = side==='give'?C.red:C.green;
+  return <div style={{background:`${col}10`,border:`1px solid ${col}30`,borderRadius:12,padding:'10px'}}>
+    <div style={{fontSize:9,fontWeight:700,color:col,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>{label}</div>
+    <div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.3,marginBottom:4}}>{name}</div>
+    <div style={{fontSize:10,color:C.text3,marginBottom:6}}>{set}</div>
+    <div style={{fontSize:13,fontWeight:700,color:C.text}}>${fmt(mv)}</div>
+    {basis&&<div style={{fontSize:10,color:C.text3}}>{basis}% basis</div>}
+  </div>;
+}
+
+// ─── SCANNER ────────────────────────────────────────────────────────────────
+function Scanner({inventory,setInventory,setTab}){
+  const [scanning,setScanning] = React.useState(false);
+  const [scanned,setScanned] = React.useState(null);
+  const [added,setAdded] = React.useState(false);
+
+  const scan = ()=>{
+    setScanning(true); setScanned(null); setAdded(false);
+    setTimeout(()=>{setScanned(MOCK_SCANS[Math.floor(Math.random()*MOCK_SCANS.length)]);setScanning(false);},2000);
+  };
+
+  const addCard = ()=>{
+    if(!scanned)return;
+    setInventory(p=>[{id:Date.now(),name:scanned.name,set:scanned.set,marketValue:scanned.price,basis:78,qty:1,status:'Holding',daysHeld:0},...p]);
+    setAdded(true);
+  };
+
+  return <div style={{padding:'16px 16px 0'}}>
+    <div style={{fontSize:17,fontWeight:800,color:C.text,marginBottom:4}}>Card Scanner</div>
+    <div style={{fontSize:12,color:C.text3,marginBottom:16}}>Identify cards and pull live pricing</div>
+    <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:20,overflow:'hidden',marginBottom:16}}>
+      <div style={{position:'relative',height:240,background:'#080810',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        {/* Corner brackets */}
+        {[[16,null,16,null],[16,null,null,16],[null,16,16,null],[null,16,null,16]].map(([top,bottom,left,right],i)=><div key={i} style={{position:'absolute',top:top!==null?top:'auto',bottom:bottom!==null?bottom:'auto',left:left!==null?left:'auto',right:right!==null?right:'auto',width:28,height:28,borderTop:top!==null?`2px solid ${C.green}`:'none',borderBottom:bottom!==null?`2px solid ${C.green}`:'none',borderLeft:left!==null?`2px solid ${C.green}`:'none',borderRight:right!==null?`2px solid ${C.green}`:'none'}}/>)}
+        {scanning?<div style={{textAlign:'center'}}>
+          <div style={{width:48,height:48,borderRadius:'50%',border:`3px solid ${C.green}`,borderTopColor:'transparent',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>
+          <div style={{fontSize:13,color:C.green,fontWeight:600}}>Identifying card...</div>
+        </div>:scanned?<div style={{textAlign:'center',padding:'0 20px'}}>
+          <div style={{fontSize:28}}>✅</div>
+          <div style={{fontSize:14,fontWeight:700,color:C.green,marginTop:6}}>Card Identified</div>
+        </div>:<div style={{textAlign:'center'}}>
+          <div style={{fontSize:36,marginBottom:8}}>📷</div>
+          <div style={{fontSize:13,color:C.text3}}>Point camera at card</div>
+        </div>}
+      </div>
+      <div style={{padding:'14px 16px'}}>
+        <button onClick={scan} disabled={scanning} style={{width:'100%',background:scanning?C.bg4:C.green,border:'none',borderRadius:12,padding:'14px',cursor:scanning?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:scanning?C.text3:'#000'}}>
+          {scanning?'Scanning...':'📷 Scan Card'}
+        </button>
+      </div>
+    </div>
+
+    {scanned&&<div style={{...card,marginBottom:16}} className="fade-in">
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:800,color:C.text}}>{scanned.name}</div>
+          <div style={{fontSize:12,color:C.text3,marginTop:2}}>{scanned.set} · {scanned.number} · {scanned.condition}</div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:20,fontWeight:800,color:C.text}}>${fmt(scanned.price)}</div>
+          <div style={{fontSize:12,fontWeight:600,color:scanned.change>=0?C.green:C.red}}>{scanned.change>=0?'▲':'▼'} {Math.abs(scanned.change)}% today</div>
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+        {[['Active Listings',scanned.listings],['Sold (7d)',scanned.sold7d]].map(([l,v])=><div key={l} style={{background:C.bg3,borderRadius:10,padding:'10px 12px'}}>
+          <div style={{fontSize:10,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600}}>{l}</div>
+          <div style={{fontSize:18,fontWeight:700,color:C.text,marginTop:4}}>{v}</div>
+        </div>)}
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={addCard} disabled={added} style={{flex:1,background:added?C.bg3:C.green,border:'none',borderRadius:10,padding:'12px',cursor:added?'default':'pointer',fontSize:13,fontWeight:700,color:added?C.green:'#000'}}>{added?'✓ Added':'+ Add to Inventory'}</button>
+        <button onClick={()=>setTab('analyzer')} style={{flex:1,background:C.bg3,border:`1px solid ${C.border}`,borderRadius:10,padding:'12px',cursor:'pointer',fontSize:13,fontWeight:700,color:C.text2}}>Analyze Trade</button>
+      </div>
+    </div>}
+
+    <div style={{...card,marginBottom:8}}>
+      <div style={{fontSize:11,fontWeight:700,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>Full Version Features</div>
+      {[['🔍','Live PSA / CGC population reports'],['📈','Price history chart (90 days)'],['🔔','Price alert notifications'],['📦','Bulk scan from binder photos'],['🤝','Direct listing to TCGplayer'],['📱','Barcode scan from sealed product']].map(([icon,text])=><div key={text} style={{display:'flex',gap:10,padding:'7px 0',borderBottom:`1px solid ${C.border}`,alignItems:'center'}}>
+        <span style={{fontSize:16}}>{icon}</span>
+        <span style={{fontSize:12,color:C.text2}}>{text}</span>
+        <span style={{marginLeft:'auto',fontSize:10,color:C.yellow,fontWeight:700,background:`${C.yellow}15`,borderRadius:6,padding:'2px 7px'}}>SOON</span>
+      </div>)}
+    </div>
+  </div>;
+}
+
+// ─── STATS ──────────────────────────────────────────────────────────────────
+function Stats({inventory}){
+  const totalMV = inventory.reduce((s,c)=>s+c.marketValue*c.qty,0);
+  const totalCost = inventory.reduce((s,c)=>s+getRealCost(c.marketValue,c.basis)*c.qty,0);
+  const avgBasis = (totalCost/totalMV)*100;
+  const t1=inventory.filter(c=>c.basis<65), t2=inventory.filter(c=>c.basis>=65&&c.basis<=75), t3=inventory.filter(c=>c.basis>75);
+  const tot=inventory.length||1;
+  const scenarios=[70,80,85,90,95].map(p=>({p,profit:totalMV*(p/100)-totalCost,ret:((totalMV*(p/100)-totalCost)/totalCost)*100}));
+
+  return <div style={{padding:'16px 16px 0'}}>
+    <div style={{background:'linear-gradient(135deg,#0F1A14 0%,#12121A 100%)',borderRadius:20,padding:'24px 20px',border:`1px solid ${C.green}30`,marginBottom:16}}>
+      <div style={labelStyle}>Total Portfolio Value</div>
+      <div style={{fontSize:38,fontWeight:800,color:C.text,letterSpacing:'-0.03em',margin:'4px 0 16px'}}>${fmt(totalMV)}</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        {[['Real Cost',`$${fmt(totalCost)}`],['Avg Basis',`${avgBasis.toFixed(1)}%`,getTierColor(avgBasis)]].map(([l,v,col])=>
+          <div key={l}><div style={{fontSize:10,color:C.text3,textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600,marginBottom:4}}>{l}</div><div style={{fontSize:18,fontWeight:700,color:col||C.text}}>{v}</div></div>
+        )}
+      </div>
+    </div>
+
+    <div style={{...card,marginBottom:16}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:14}}>Exit Scenarios</div>
+      {scenarios.map(({p,profit,ret})=><div key={p} style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+        <div style={{width:36,fontSize:12,fontWeight:700,color:C.text3}}>{p}%</div>
+        <div style={{flex:1,height:6,background:C.bg4,borderRadius:3,overflow:'hidden'}}>
+          <div style={{height:'100%',background:profit>=0?C.green:C.red,borderRadius:3,width:`${Math.min(Math.abs(ret),100)}%`}}/>
+        </div>
+        <div style={{width:74,textAlign:'right'}}><span style={{fontSize:12,fontWeight:700,color:profit>=0?C.green:C.red}}>{profit>=0?'+':''}${profit.toFixed(2)}</span></div>
+        <div style={{width:44,textAlign:'right'}}><span style={{fontSize:11,color:C.text3}}>{ret>=0?'+':''}{ret.toFixed(1)}%</span></div>
+      </div>)}
+    </div>
+
+    <div style={{...card,marginBottom:16}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:14}}>Inventory Tier Breakdown</div>
+      {[[t1,'T1 — Under 65%',C.green],[t2,'T2 — 66–75%',C.orange],[t3,'T3 — Over 75%',C.red]].map(([cards,label,color])=>{
+        const pct=(cards.length/tot)*100;
+        const mv=cards.reduce((s,c)=>s+c.marketValue*c.qty,0);
+        return <div key={label} style={{marginBottom:14}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:3,height:14,background:color,borderRadius:2}}/><span style={{fontSize:12,color:C.text2,fontWeight:600}}>{label}</span></div>
+            <span style={{fontSize:12,color,fontWeight:700}}>{cards.length} card{cards.length!==1?'s':''} · ${mv.toFixed(0)}</span>
+          </div>
+          <div style={{height:6,background:C.bg4,borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',background:color,borderRadius:3,width:`${pct}%`}}/></div>
+          <div style={{fontSize:10,color:C.text3,marginTop:3}}>{pct.toFixed(0)}% of portfolio</div>
+        </div>;
+      })}
+    </div>
+
+    <div style={{...card,marginBottom:8}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:14}}>Capital Allocation</div>
+      {[['Active Trading',60,C.green],['Growth Capital',25,C.yellow],['Passive Hold',15,C.blue]].map(([label,pct,color])=><div key={label} style={{marginBottom:14}}>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+          <span style={{fontSize:12,color:C.text2,fontWeight:600}}>{label}</span>
+          <span style={{fontSize:12,color,fontWeight:700}}>{pct}%</span>
+        </div>
+        <div style={{height:8,background:C.bg4,borderRadius:4,overflow:'hidden'}}><div style={{height:'100%',background:color,borderRadius:4,width:`${pct}%`}}/></div>
+        <div style={{fontSize:11,color:C.text3,marginTop:3}}>${(totalMV*pct/100).toFixed(2)}</div>
+      </div>)}
+    </div>
+  </div>;
+}
+
+// ─── APP ROOT ────────────────────────────────────────────────────────────────
+function App(){
+  const [tab,setTab] = React.useState('home');
+  const [inventory,setInventory] = React.useState(INVENTORY_DATA);
+  const screens = {home:Home,inventory:Inventory,analyzer:DealAnalyzer,trade:TradeBlock,scanner:Scanner,stats:Stats};
+  const Screen = screens[tab];
+
+  return <div style={{background:C.bg,minHeight:'100dvh',display:'flex',justifyContent:'center'}}>
+    <div style={{width:'100%',maxWidth:430,display:'flex',flexDirection:'column',minHeight:'100dvh',position:'relative'}}>
+      {/* Top Bar */}
+      <div style={{position:'sticky',top:0,zIndex:100,background:C.bg,borderBottom:`1px solid ${C.border}`,padding:'14px 20px 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:28,height:28,borderRadius:8,background:C.green,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <span style={{fontSize:14,fontWeight:900,color:'#000'}}>P</span>
+          </div>
+          <span style={{fontSize:17,fontWeight:800,letterSpacing:'-0.03em',color:C.text}}>PULL Rate</span>
+        </div>
+        <div style={{fontSize:11,fontWeight:700,color:C.green,letterSpacing:'0.06em',background:`${C.green}18`,padding:'4px 10px',borderRadius:20}}>LIVE</div>
+      </div>
+
+      {/* Content */}
+      <div style={{flex:1,overflowY:'auto',paddingBottom:80}}>
+        <Screen inventory={inventory} setInventory={setInventory} setTab={setTab}/>
+      </div>
+
+      {/* Bottom Nav */}
+      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:C.bg2,borderTop:`1px solid ${C.border}`,display:'flex',zIndex:100,paddingBottom:'env(safe-area-inset-bottom)'}}>
+        {NAV.map(({id,label,Icon})=>{
+          const active=tab===id;
+          return <button key={id} onClick={()=>setTab(id)} style={{flex:1,background:'none',border:'none',cursor:'pointer',padding:'10px 0 8px',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+            <Icon color={active?C.green:C.text3}/>
+            <span style={{fontSize:10,fontWeight:active?700:500,color:active?C.green:C.text3,letterSpacing:'0.02em'}}>{label}</span>
+          </button>;
+        })}
+      </div>
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
